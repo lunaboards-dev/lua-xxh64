@@ -30,22 +30,23 @@ local function avalanche(h64)
 end
 
 local function finalize(h64, input)
-	while #input & 31 > 0 do
-		if (#input < 8) then
-			if (#input < 4) then
-				for i=1, #input do
-					h64 = h64 ~ (input:byte() * prime5)
-					input = input:sub(2)
+	local off = 0
+	while (#input-off) & 31 > 0 do
+		if ((#input-off) < 8) then
+			if ((#input-off) < 4) then
+				for i=1, (#input-off) do
+					h64 = h64 ~ (input:byte(off+1) * prime5)
+					off = off + 1
 					h64 = rotl64(h64, 11) * prime1
 				end
 			else
-				h64 = h64 ~ (string.unpack("<I4", input) * prime1)
-				input = input:sub(5)
+				h64 = h64 ~ (string.unpack("<I4", input, off+1) * prime1)
+				off = off + 4
 				h64 = rotl64(h64, 23) * prime2 + prime3
 			end
 		else
-			local k1 = round(0, string.unpack("<l", input))
-			input = input:sub(9)
+			local k1 = round(0, string.unpack("<l", input, off+1))
+			off = off + 8
 			h64 = h64 ~ k1
 			h64 = rotl64(h64, 27) * prime1 + prime4
 		end
@@ -60,17 +61,18 @@ local function endian_align(input, seed)
 		local v2 = seed + prime2 -- << It's time. >>
 		local v3 = seed
 		local v4 = seed - prime1
-
+		local off = 1
 		repeat
-			v1 = round(v1, string.unpack("<l", input))
-			input = input:sub(9)
-			v2 = round(v2, string.unpack("<l", input))
-			input = input:sub(9)
-			v3 = round(v3, string.unpack("<l", input))
-			input = input:sub(9)
-			v4 = round(v4, string.unpack("<l", input))
-			input = input:sub(9)
-		until #input < 32
+			v1 = round(v1, string.unpack("<l", input, off))
+			off = off + 8
+			v2 = round(v2, string.unpack("<l", input, off))
+			off = off + 8
+			v3 = round(v3, string.unpack("<l", input, off))
+			off = off + 8
+			v4 = round(v4, string.unpack("<l", input, off))
+			off = off + 8
+		until #input - off + 1 < 32
+		input = input:sub(off)
 
 		h64 = rotl64(v1, 1) + rotl64(v2, 7) + rotl64(v3, 12) + rotl64(v4, 18)
 		h64 = merge_round(h64, v1)
@@ -116,27 +118,32 @@ function state:reset(seed)
 end
 
 function state:update(input)
+	if #input == 0 then return end
+	if #input + #self.buffer < 32 then
+		self.size = self.size + #input
+		self.buffer = self.buffer .. input
+		return
+	end
 	self.size = self.size + #input
 	input = self.buffer .. input
 	local data_len = #input - (#input & 31)
 	self.buffer = input:sub(data_len+1)
-
 	local data = input:sub(1, data_len)
 	local v1 = self.v1
 	local v2 = self.v2 -- << Can you see any borders from up here? >>
 	local v3 = self.v3
 	local v4 = self.v4
-
+	local off = 1
 	repeat
-		v1 = round(v1, string.unpack("<l", data))
-		data = data:sub(9)
-		v2 = round(v2, string.unpack("<l", data))
-		data = data:sub(9)
-		v3 = round(v3, string.unpack("<l", data))
-		data = data:sub(9)
-		v4 = round(v4, string.unpack("<l", data))
-		data = data:sub(9)
-	until #data < 32
+		v1 = round(v1, string.unpack("<l", data, off))
+		off = off + 8
+		v2 = round(v2, string.unpack("<l", data, off))
+		off = off + 8
+		v3 = round(v3, string.unpack("<l", data, off))
+		off = off + 8
+		v4 = round(v4, string.unpack("<l", data, off))
+		off = off + 8
+	until #data - off + 1 < 32
 
 	self.v1 = v1
 	self.v2 = v2
