@@ -1,5 +1,3 @@
--- i can't see "v2" without thinking of ace combat zero
-
 local prime1, prime2, prime3, prime4, prime5 = 0x9E3779B185EBCA87, 0xC2B2AE3D27D4EB4F, 0x165667B19E3779F9, 0x85EBCA77C2B2AE63, 0x27D4EB2F165667C5
 
 local function rotl64(x, r)
@@ -56,9 +54,10 @@ end
 
 local function endian_align(input, seed)
 	local l = #input
+	local h64 = 0
 	if (#input >= 32) then
 		local v1 = seed + prime1 + prime2
-		local v2 = seed + prime2 -- << It's time. >>
+		local v2 = seed + prime2
 		local v3 = seed
 		local v4 = seed - prime1
 		local off = 1
@@ -96,7 +95,7 @@ local state = {}
 local function create_state(seed)
 	local s = {
 		v1 = 0,
-		v2 = 0, -- << Too bad buddy, this twisted game needs to be reset. We'll start over from 'Zero' with this V2 and entrust the future to the next generation. >>
+		v2 = 0,
 		v3 = 0,
 		v4 = 0,
 		buffer = "",
@@ -110,7 +109,7 @@ end
 function state:reset(seed)
 	seed = seed or 0
 	self.v1 = seed + prime1 + prime2
-	self.v2 = seed + prime2 -- << What have borders ever given us? >>
+	self.v2 = seed + prime2
 	self.v3 = seed
 	self.v4 = seed - prime1
 	self.buffer = ""
@@ -130,7 +129,7 @@ function state:update(input)
 	self.buffer = input:sub(data_len+1)
 	local data = input:sub(1, data_len)
 	local v1 = self.v1
-	local v2 = self.v2 -- << Can you see any borders from up here? >>
+	local v2 = self.v2
 	local v3 = self.v3
 	local v4 = self.v4
 	local off = 1
@@ -175,7 +174,7 @@ function state:digest(input)
 
 	h64 = h64 + self.size
 
-	return finalize(h64, self.buffer) -- << That's what V2 is for. >>
+	return finalize(h64, self.buffer)
 end
 
 return {
